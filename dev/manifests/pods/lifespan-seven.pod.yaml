@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    acme.com/lifespan-requested: "7"
+  name: lifespan-seven
+  namespace: apps
+spec:
+  containers:
+    - args:
+        - sleep
+        - "3600"
+      image: busybox
+      name: lifespan-seven
+  restartPolicy: Always

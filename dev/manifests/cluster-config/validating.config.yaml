@@ -1,0 +1,43 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: "simple-kubernetes-webhook.acme.com"
+webhooks:
+  - name: "simple-kubernetes-webhook.acme.com"
+    namespaceSelector:
+      matchLabels:
+        admission-webhook: enabled
+    rules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["pods"]
+        scope: "*"
+    clientConfig:
+      service:
+        namespace: default
+        name: simple-kubernetes-webhook
+        path: /validate-pods
+        port: 443
+      caBundle: |
+        LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUMzRENDQWNRQ0NRRFNoLzlJalVDUXFqQU5CZ2tx
+        aGtpRzl3MEJBUXNGQURBd01Rc3dDUVlEVlFRR0V3SkIKVlRFaE1COEdBMVVFQXd3WWMybHRjR3hsTFdG
+        a2JXbHpjMmx2YmkxM1pXSm9iMjlyTUI0WERUSXhNRGt3TXpBegpOVFEwTVZvWERUSXlNRGt3TXpBek5U
+        UTBNVm93TURFTE1Ba0dBMVVFQmhNQ1FWVXhJVEFmQmdOVkJBTU1HSE5wCmJYQnNaUzFoWkcxcGMzTnBi
+        MjR0ZDJWaWFHOXZhekNDQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0MKQVFvQ2dnRUJBTUhK
+        KzdHRHFjNlFVeFdaZjBXOWFDVExBSnd6a2IzM1RpZlhPdWIvTlhwaTltZDltMEMwbklPbwppdmxQWFlV
+        YThjU2ZaZ2tEV1lNQWZRZmN2V1pIOVVKSmRqZ0tab1pLeDh0ZkdFOVd4d3RRdCtTbitRUkU1eFBtCmM4
+        czlOcXJXeExxNG45akRZNnU4NXFLT0dxbFpzcTRYZ1lTTXo4UjdVaXZUQk1tSUhGdFhISG9lR0h1QkdI
+        bFkKOWsrc0NYM3ExVThzM3I0RGNVK0hXb3crc3JOK2RpQzZ2b0VvR3lLS2RjM2drVC8wODVEUnFMamtX
+        RVNIbUpVWQp1aTRzdXFXeDJhQ2xoNWFsYms5anZicjVrMmR1eXQwTkVhdEwxeWEyc3F1cDZKd0pwZUtC
+        V053ZWllS0FCQ3BpCi9FTU04ZG9zNW5IaUduQkhtamZlbGFjVTBSbmoycnNDQXdFQUFUQU5CZ2txaGtp
+        Rzl3MEJBUXNGQUFPQ0FRRUEKQmd4V3BYZHR4UTBITzRZcGZHY3FCUFlVMllIVjZKMS9kRERYOFhlTmF4
+        c1dSTUFaQkZxQ3FTd1diWUNZRjRrOApmUnlHajN4QU8yOENZYW9XNW9ZMVBLMWp4WXN4ZUdMaDdLdG5C
+        VVFCVHVSY1poVzJOekEvYlY3ZkJJWnRHcnl3Cm5oTVVJcE51dmMzcWRMV3V4Y2krZlFwVUdBeFFVRFhp
+        QWpKVUN2UkhwWldUUUt3Zkc3NUpvT0hsMUF4NjkzNUgKdmhyZDJ5TTFFelJrM0cxSE8veTEvdWFFWTcr
+        ZFROb3RvZWc5b1QwRlFTM2c3SVhoR1U4VDBhODhWVlhTc0REUgptSkk5YWhLSDlRZnpHYjQyc2Vmellh
+        YWpXYmJadTZrUTFNY0UraUgvWlc2dFNXWGEySHdXY3NPUDVoNnJSbnVRCmMzNmZQMENJeVluTG9mZG1o
+        K0R6Nmc9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    timeoutSeconds: 2

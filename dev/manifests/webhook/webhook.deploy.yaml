@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: simple-kubernetes-webhook
+  name: simple-kubernetes-webhook
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: simple-kubernetes-webhook
+  template:
+    metadata:
+      labels:
+        app: simple-kubernetes-webhook
+    spec:
+      tolerations:
+        - key: acme.com/lifespan-remaining
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - image: simple-kubernetes-webhook:latest
+          imagePullPolicy: Never
+          name: simple-kubernetes-webhook
+          env:
+            - name: TLS
+              value: "true"
+            - name: LOG_LEVEL
+              value: "trace"
+            - name: LOG_JSON
+              value: "false"
+          volumeMounts:
+            - name: tls
+              mountPath: "/etc/admission-webhook/tls"
+              readOnly: true
+      volumes:
+        - name: tls
+          secret:
+            secretName: simple-kubernetes-webhook-tls
