@@ -35,7 +35,7 @@ func (m *Mutator) MutateNodePatch(node *corev1.Node) ([]byte, error) {
 	newTaint := corev1.Taint{
 		Key:    "foo",
 		Value:  "bar",
-		Effect: "NoSchedule",
+		Effect: "PreferNoSchedule",
 	}
 
 	node.Spec.Taints = append(node.Spec.Taints, newTaint)
@@ -48,6 +48,8 @@ func (m *Mutator) MutateNodePatch(node *corev1.Node) ([]byte, error) {
 			Value: node.Spec.Taints,
 		},
 	}
+
+	m.Logger.Infof("Patches: %s", op)
 	patchPayload, _ := json.Marshal(op)
 
 	return patchPayload, nil

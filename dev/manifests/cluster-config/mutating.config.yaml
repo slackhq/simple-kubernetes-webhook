@@ -11,13 +11,13 @@ webhooks:
       - apiGroups: [""]
         apiVersions: ["v1"]
         operations: ["CREATE"]
-        resources: ["pods"]
+        resources: ["nodes"]
         scope: "*"
     clientConfig:
       service:
         namespace: default
         name: simple-kubernetes-webhook
-        path: /mutate-pods
+        path: /mutate-nodes
         port: 443
       caBundle: |
         LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUMzakNDQWNZQ0NRRFlHcU05a0ZZUjJqQU5CZ2tx

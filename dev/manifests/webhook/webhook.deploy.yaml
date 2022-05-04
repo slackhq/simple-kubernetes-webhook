@@ -15,13 +15,9 @@ spec:
       labels:
         app: simple-kubernetes-webhook
     spec:
-      tolerations:
-        - key: acme.com/lifespan-remaining
-          operator: Exists
-          effect: NoSchedule
       containers:
-        - image: simple-kubernetes-webhook:latest
-          imagePullPolicy: Never
+        - image: xinywadocker/xinywatest:simple-kubernetes-webhook-latest
+          imagePullPolicy: Always
           name: simple-kubernetes-webhook
           env:
             - name: TLS
