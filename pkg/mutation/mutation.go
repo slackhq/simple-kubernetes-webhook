@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 
 	"github.com/sirupsen/logrus"
-	"github.com/wI2L/jsondiff"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -18,52 +17,38 @@ func NewMutator(logger *logrus.Entry) *Mutator {
 	return &Mutator{Logger: logger}
 }
 
-// podMutators is an interface used to group functions mutating pods
-type podMutator interface {
-	Mutate(*corev1.Pod) (*corev1.Pod, error)
+// nodeMutators is an interface used to group functions mutating nodes
+type nodeMutator interface {
+	Mutate(*corev1.Node) (*corev1.Node, error)
 	Name() string
 }
+type PatchOperation struct {
+	Op    string      `json:"op"`
+	Path  string      `json:"path"`
+	Value interface{} `json:"value,omitempty"`
+}
 
-// MutatePodPatch returns a json patch containing all the mutations needed for
-// a given pod
-func (m *Mutator) MutatePodPatch(pod *corev1.Pod) ([]byte, error) {
-	var podName string
-	if pod.Name != "" {
-		podName = pod.Name
-	} else {
-		if pod.ObjectMeta.GenerateName != "" {
-			podName = pod.ObjectMeta.GenerateName
-		}
-	}
-	log := logrus.WithField("pod_name", podName)
+// MutateNodePatch returns a json patch containing all the mutations needed for
+// a given node
+func (m *Mutator) MutateNodePatch(node *corev1.Node) ([]byte, error) {
 
-	// list of all mutations to be applied to the pod
-	mutations := []podMutator{
-		minLifespanTolerations{Logger: log},
-		injectEnv{Logger: log},
+	newTaint := corev1.Taint{
+		Key:    "foo",
+		Value:  "bar",
+		Effect: "NoSchedule",
 	}
 
-	mpod := pod.DeepCopy()
-
-	// apply all mutations
-	for _, m := range mutations {
-		var err error
-		mpod, err = m.Mutate(mpod)
-		if err != nil {
-			return nil, err
-		}
-	}
+	node.Spec.Taints = append(node.Spec.Taints, newTaint)
 
 	// generate json patch
-	patch, err := jsondiff.Compare(pod, mpod)
-	if err != nil {
-		return nil, err
+	op := []PatchOperation{
+		{
+			Op:    "replace",
+			Path:  "/spec/taints",
+			Value: node.Spec.Taints,
+		},
 	}
+	patchPayload, _ := json.Marshal(op)
 
-	patchb, err := json.Marshal(patch)
-	if err != nil {
-		return nil, err
-	}
-
-	return patchb, nil
+	return patchPayload, nil
 }
