@@ -9,7 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// minLifespanTolerations is a container for mininum lifespan mutation
+// minLifespanTolerations is a container for minimum lifespan mutation
 type minLifespanTolerations struct {
 	Logger logrus.FieldLogger
 }
