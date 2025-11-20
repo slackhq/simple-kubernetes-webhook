@@ -1,0 +1,4 @@
+[tools]
+go = "latest"
+kind = "latest"
+kubectl = "latest"

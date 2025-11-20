@@ -1,0 +1,11 @@
+image.tar
+ca.crt
+ca.key
+ca.srl
+server.crt
+server.csr
+server.key
+konfig
+
+# Secret files
+.envrc
