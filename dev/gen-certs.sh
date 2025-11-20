@@ -2,7 +2,7 @@
 
 openssl genrsa -out ca.key 2048
 
-openssl req -new -x509 -days 365 -key ca.key \
+openssl req -new -x509 -days 365 -sha256 -key ca.key \
   -subj "/C=AU/CN=simple-kubernetes-webhook"\
   -out ca.crt
 
@@ -10,7 +10,7 @@ openssl req -newkey rsa:2048 -nodes -keyout server.key \
   -subj "/C=AU/CN=simple-kubernetes-webhook" \
   -out server.csr
 
-openssl x509 -req \
+openssl x509 -req -sha256 \
   -extfile <(printf "subjectAltName=DNS:simple-kubernetes-webhook.default.svc") \
   -days 365 \
   -in server.csr \
