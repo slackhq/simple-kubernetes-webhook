@@ -14,7 +14,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	types "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // Admitter is a container for admission business
@@ -42,7 +42,7 @@ func (a Admitter) MutatePodReview() (*admissionv1.AdmissionReview, error) {
 	return patchReviewResponse(a.Request.UID, patch)
 }
 
-// MutatePodReview takes an admission request and validates the pod within
+// ValidatePodReview takes an admission request and validates the pod within
 // it returns an admission review
 func (a Admitter) ValidatePodReview() (*admissionv1.AdmissionReview, error) {
 	pod, err := a.Pod()

@@ -4,7 +4,7 @@ This is a simple [Kubernetes admission webhook](https://kubernetes.io/docs/refer
 
 This project is aimed at illustrating how to build a fully functioning admission webhook in the simplest way possible. Most existing examples found on the web rely on heavy machinery using powerful frameworks, yet fail to illustrate how to implement a lightweight webhook that can do much needed actions such as rejecting a pod for compliance reasons, or inject helpful environment variables.
 
-For readability, this project has been stripped of the usual production items such as: observability instrumentation, release scripts, redundant deployment configurations, etc. As such, it is not meant to use as-is in a production environment. This project is, in fact, a simplified fork of a system used accross all Kubernetes production environments at Slack.
+For readability, this project has been stripped of the usual production items such as: observability instrumentation, release scripts, redundant deployment configurations, etc. As such, it is not meant to use as-is in a production environment. This project is, in fact, a simplified fork of a system used across all Kubernetes production environments at Slack.
 
 ## Installation
 This project can fully run locally and includes automation to deploy a local Kubernetes cluster (using Kind).
@@ -110,7 +110,7 @@ OK
 ```
 
 ### Deploying pods
-Deploy a valid test pod that gets succesfully created:
+Deploy a valid test pod that gets successfully created:
 ```
 ❯ make pod
 
