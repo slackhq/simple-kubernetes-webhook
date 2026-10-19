@@ -7,139 +7,83 @@ This project is aimed at illustrating how to build a fully functioning admission
 For readability, this project has been stripped of the usual production items such as: observability instrumentation, release scripts, redundant deployment configurations, etc. As such, it is not meant to use as-is in a production environment. This project is, in fact, a simplified fork of a system used across all Kubernetes production environments at Slack.
 
 ## Installation
-This project can fully run locally and includes automation to deploy a local Kubernetes cluster (using Kind).
+This project runs locally using Docker and Kind. Run the commands below from the repository root.
 
 ### Requirements
-* Docker
-* kubectl
-* [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation)
-* Go >=1.16 (optional)
+* Docker with a running Linux container engine
+* kubectl 1.37.x
+* [Kind 0.33.0](https://kind.sigs.k8s.io/docs/user/quick-start/#installation)
+* Bash, OpenSSL, and make
+* Go >=1.26.9 (optional; needed for `make test` and `make build`)
+
+The demo uses Kubernetes 1.37.0. Docker builds use Go 1.27.2 and support both amd64 and arm64. Local Go commands also select Go 1.27.2 automatically with the default `GOTOOLCHAIN=auto` setting.
 
 ## Usage
 ### Create Cluster
-First, we need to create a Kubernetes cluster:
+Create the local cluster and wait for its control plane to become ready:
+```sh
+make cluster
+kubectl --context kind-kind get nodes
+kubectl --context kind-kind -n kube-system get pods
 ```
-❯ make cluster
+The node should be `Ready` and system pods should be running. Port 8443 must be available on your host.
 
-🔧 Creating Kubernetes cluster...
-kind create cluster --config dev/manifests/kind/kind.cluster.yaml
-Creating cluster "kind" ...
- ✓ Ensuring node image (kindest/node:v1.21.1) 🖼
- ✓ Preparing nodes 📦
- ✓ Writing configuration 📜
- ✓ Starting control-plane 🕹️
- ✓ Installing CNI 🔌
- ✓ Installing StorageClass 💾
-Set kubectl context to "kind-kind"
-You can now use your cluster with:
-
-kubectl cluster-info --context kind-kind
-
-Have a nice day! 👋
-```
-
-Make sure that the Kubernetes node is ready:
-```
-❯ kubectl get nodes
-NAME                 STATUS   ROLES                  AGE     VERSION
-kind-control-plane   Ready    control-plane,master   3m25s   v1.21.1
-```
-
-And that system pods are running happily:
-```
-❯ kubectl -n kube-system get pods
-NAME                                         READY   STATUS    RESTARTS   AGE
-coredns-558bd4d5db-thwvj                     1/1     Running   0          3m39s
-coredns-558bd4d5db-w85ks                     1/1     Running   0          3m39s
-etcd-kind-control-plane                      1/1     Running   0          3m56s
-kindnet-84slq                                1/1     Running   0          3m40s
-kube-apiserver-kind-control-plane            1/1     Running   0          3m54s
-kube-controller-manager-kind-control-plane   1/1     Running   0          3m56s
-kube-proxy-4h6sj                             1/1     Running   0          3m40s
-kube-scheduler-kind-control-plane            1/1     Running   0          3m54s
-```
+Make targets explicitly use the `kind-kind` context. To use another local Kind cluster name, pass `CLUSTER_NAME=example` to each make command; its context will be `kind-example`.
 
 ### Deploy Admission Webhook
-To configure the cluster to use the admission webhook and to deploy said webhook, simply run:
+```sh
+make deploy
+kubectl --context kind-kind -n default get pods
 ```
-❯ make deploy
+This builds and loads the image, generates fresh TLS certificates, recreates the webhook deployment, waits for HTTPS readiness, and registers the mutating and validating webhooks. The `apps` namespace is labelled to enable admission; the webhook itself runs in `default`.
 
-📦 Building simple-kubernetes-webhook Docker image...
-docker build -t simple-kubernetes-webhook:latest .
-[+] Building 14.3s (13/13) FINISHED
-...
+Certificates and rendered manifests are generated in ignored `dev/generated/`. Run `make deploy` again to rebuild or renew the certificates; each deployment rotates the local CA and updates both webhook configurations.
 
-📦 Pushing admission-webhook image into Kind's Docker daemon...
-kind load docker-image simple-kubernetes-webhook:latest
-Image: "simple-kubernetes-webhook:latest" with ID "sha256:46b8603bcc11a8fa1825190d3ed99c099096395b22a709e13ec6e7ae2f54014d" not yet present on node "kind-control-plane", loading...
-
-⚙️  Applying cluster config...
-kubectl apply -f dev/manifests/cluster-config/
-namespace/apps created
-mutatingwebhookconfiguration.admissionregistration.k8s.io/simple-kubernetes-webhook.acme.com created
-validatingwebhookconfiguration.admissionregistration.k8s.io/simple-kubernetes-webhook.acme.com created
-
-🚀 Deploying simple-kubernetes-webhook...
-kubectl apply -f dev/manifests/webhook/
-deployment.apps/simple-kubernetes-webhook created
-service/simple-kubernetes-webhook created
-secret/simple-kubernetes-webhook-tls created
+Stream logs in another terminal (Ctrl-C to stop):
+```sh
+make logs
 ```
 
-Then, make sure the admission webhook pod is running (in the `default` namespace):
+Check the HTTPS endpoint using the generated CA:
+```sh
+curl --cacert dev/generated/ca.crt https://localhost:8443/health
 ```
-❯ kubectl get pods
-NAME                                        READY   STATUS    RESTARTS   AGE
-simple-kubernetes-webhook-77444566b7-wzwmx   1/1     Running   0          2m21s
-```
-
-You can stream logs from it:
-```
-❯ make logs
-
-🔍 Streaming simple-kubernetes-webhook logs...
-kubectl logs -l app=simple-kubernetes-webhook -f
-time="2021-09-03T04:59:10Z" level=info msg="Listening on port 443..."
-time="2021-09-03T05:02:21Z" level=debug msg=healthy uri=/health
-```
-
-And hit it's health endpoint from your local machine:
-```
-❯ curl -k https://localhost:8443/health
-OK
-```
+Expected response: `OK`. The local certificate also covers the service DNS name used by Kubernetes.
 
 ### Deploying pods
-Deploy a valid test pod that gets successfully created:
+Create the valid example and wait for it to run:
+```sh
+make pod
+kubectl --context kind-kind -n apps wait --for=condition=Ready pod/lifespan-seven --timeout=120s
+kubectl --context kind-kind -n apps exec lifespan-seven -- printenv KUBE
+kubectl --context kind-kind -n apps get pod lifespan-seven -o jsonpath='{.spec.tolerations}'
 ```
-❯ make pod
+The environment variable should be `true`. The tolerations should include `acme.com/lifespan-remaining` values 7 through 14. The webhook logs show both mutation and validation.
 
-🚀 Deploying test pod...
-kubectl apply -f dev/manifests/pods/lifespan-seven.pod.yaml
-pod/lifespan-seven created
+Create the invalid example:
+```sh
+make bad-pod
 ```
-You should see in the admission webhook logs that the pod got mutated and validated.
+This command is **expected to fail** with `pod name contains "offensive"`. It should report an admission rejection, not a TLS or connection error. Mutation runs before validation, so logs can show both for a rejected pod.
 
-Deploy a non valid pod that gets rejected:
+### Cleanup
+```sh
+make delete-all
+make delete-cluster
 ```
-❯ make bad-pod
-
-🚀 Deploying "bad" pod...
-kubectl apply -f dev/manifests/pods/bad-name.pod.yaml
-Error from server: error when creating "dev/manifests/pods/bad-name.pod.yaml": admission webhook "simple-kubernetes-webhook.acme.com" denied the request: pod name contains "offensive"
-```
-You should see in the admission webhook logs that the pod validation failed. It's possible you will also see that the pod was mutated, as webhook configurations are not ordered.
+Cleanup works even when the invalid pod was rejected or resources are already absent. It targets the local Kind cluster. Generated files remain in `dev/generated/` for inspection and are replaced on the next deployment.
 
 ## Testing
-Unit tests can be run with the following command:
+Run the unit and HTTP handler tests:
+```sh
+make test
 ```
-$ make test
-go test ./...
-?   	github.com/slackhq/simple-kubernetes-webhook	[no test files]
-ok  	github.com/slackhq/simple-kubernetes-webhook/pkg/admission	0.611s
-ok  	github.com/slackhq/simple-kubernetes-webhook/pkg/mutation	1.064s
-ok  	github.com/slackhq/simple-kubernetes-webhook/pkg/validation	0.749s
+
+Build local binaries for macOS and Linux on amd64 and arm64:
+```sh
+make build
 ```
+The binaries are written to ignored `bin/`.
 
 ## Admission Logic
 A set of validations and mutations are implemented in an extensible framework. Those happen on the fly when a pod is deployed and no further resources are tracked and updated (ie. no controller logic).
@@ -149,7 +93,7 @@ A set of validations and mutations are implemented in an extensible framework. T
 - [name validation](pkg/validation/name_validator.go): validates that a pod name doesn't contain any offensive string
 
 #### How to add a new pod validation
-To add a new pod mutation, create a file `pkg/validation/MUTATION_NAME.go`, then create a new struct implementing the `validation.podValidator` interface.
+To add a new pod validation, create a file `pkg/validation/VALIDATION_NAME.go`, then create a new struct implementing the `validation.podValidator` interface. Register an instance in the `validations` list in `pkg/validation/validation.go`.
 
 ### Mutating Webhooks
 #### Implemented
@@ -157,7 +101,4 @@ To add a new pod mutation, create a file `pkg/validation/MUTATION_NAME.go`, then
 - [minimum pod lifespan](pkg/mutation/minimum_lifespan.go): inject a set of tolerations used to match pods to nodes of a certain age, the tolerations injected are controlled via the `acme.com/lifespan-requested` pod label.
 
 #### How to add a new pod mutation
-To add a new pod mutation, create a file `pkg/mutation/MUTATION_NAME.go`, then create a new struct implementing the `mutation.podMutator` interface.
-
-
-
+To add a new pod mutation, create a file `pkg/mutation/MUTATION_NAME.go`, then create a new struct implementing the `mutation.podMutator` interface. Register an instance in the `mutations` list in `pkg/mutation/mutation.go`.

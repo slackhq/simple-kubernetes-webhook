@@ -1,3 +1,6 @@
+CLUSTER_NAME ?= kind
+KUBECTL = kubectl --context kind-$(CLUSTER_NAME)
+
 .PHONY: test
 test:
 	@echo "\n🛠️  Running unit tests..."
@@ -8,6 +11,8 @@ build:
 	@echo "\n🔧  Building Go binaries..."
 	GOOS=darwin GOARCH=amd64 go build -o bin/admission-webhook-darwin-amd64 .
 	GOOS=linux GOARCH=amd64 go build -o bin/admission-webhook-linux-amd64 .
+	GOOS=darwin GOARCH=arm64 go build -o bin/admission-webhook-darwin-arm64 .
+	GOOS=linux GOARCH=arm64 go build -o bin/admission-webhook-linux-arm64 .
 
 .PHONY: docker-build
 docker-build:
@@ -18,67 +23,81 @@ docker-build:
 .PHONY: cluster
 cluster:
 	@echo "\n🔧 Creating Kubernetes cluster..."
-	kind create cluster --config dev/manifests/kind/kind.cluster.yaml
+	kind create cluster --name $(CLUSTER_NAME) --config dev/manifests/kind/kind.cluster.yaml --wait 120s
 
 .PHONY: delete-cluster
 delete-cluster:
 	@echo "\n♻️  Deleting Kubernetes cluster..."
-	kind delete cluster
+	kind delete cluster --name $(CLUSTER_NAME)
 
 .PHONY: push
 push: docker-build
 	@echo "\n📦 Pushing admission-webhook image into Kind's Docker daemon..."
-	kind load docker-image simple-kubernetes-webhook:latest
+	kind load docker-image simple-kubernetes-webhook:latest --name $(CLUSTER_NAME)
+
+.PHONY: certs
+certs:
+	@echo "\n🔐 Generating local TLS certificates and manifests..."
+	bash dev/gen-certs.sh
 
 .PHONY: deploy-config
 deploy-config:
 	@echo "\n⚙️  Applying cluster config..."
-	kubectl apply -f dev/manifests/cluster-config/
+	$(KUBECTL) apply -f dev/manifests/cluster-config/apps.ns.yaml
+	$(KUBECTL) apply -f dev/generated/mutating.config.yaml -f dev/generated/validating.config.yaml
 
 .PHONY: delete-config
 delete-config:
 	@echo "\n♻️  Deleting Kubernetes cluster config..."
-	kubectl delete -f dev/manifests/cluster-config/
+	$(KUBECTL) delete -f dev/manifests/cluster-config/ --ignore-not-found
 
 .PHONY: deploy
-deploy: push delete deploy-config
+deploy: push certs
+	$(MAKE) delete
 	@echo "\n🚀 Deploying simple-kubernetes-webhook..."
-	kubectl apply -f dev/manifests/webhook/
+	$(KUBECTL) apply -f dev/generated/webhook.tls.secret.yaml
+	$(KUBECTL) apply -f dev/manifests/webhook/
+	$(KUBECTL) -n default rollout status deployment/simple-kubernetes-webhook --timeout=120s
+	$(MAKE) deploy-config
 
 .PHONY: delete
 delete:
 	@echo "\n♻️  Deleting simple-kubernetes-webhook deployment if existing..."
-	kubectl delete -f dev/manifests/webhook/ || true
+	$(KUBECTL) delete -f dev/manifests/webhook/ --ignore-not-found
+	$(KUBECTL) -n default delete secret simple-kubernetes-webhook-tls --ignore-not-found
 
 .PHONY: pod
 pod:
 	@echo "\n🚀 Deploying test pod..."
-	kubectl apply -f dev/manifests/pods/lifespan-seven.pod.yaml
+	$(KUBECTL) apply -f dev/manifests/pods/lifespan-seven.pod.yaml
 
 .PHONY: delete-pod
 delete-pod:
 	@echo "\n♻️ Deleting test pod..."
-	kubectl delete -f dev/manifests/pods/lifespan-seven.pod.yaml
+	$(KUBECTL) delete -f dev/manifests/pods/lifespan-seven.pod.yaml --ignore-not-found
 
 .PHONY: bad-pod
 bad-pod:
 	@echo "\n🚀 Deploying \"bad\" pod..."
-	kubectl apply -f dev/manifests/pods/bad-name.pod.yaml
+	$(KUBECTL) apply -f dev/manifests/pods/bad-name.pod.yaml
 
 .PHONY: delete-bad-pod
 delete-bad-pod:
 	@echo "\n🚀 Deleting \"bad\" pod..."
-	kubectl delete -f dev/manifests/pods/bad-name.pod.yaml
+	$(KUBECTL) delete -f dev/manifests/pods/bad-name.pod.yaml --ignore-not-found
 
 .PHONY: taint
 taint:
-	@echo "\n🎨 Taining Kubernetes node.."
-	kubectl taint nodes kind-control-plane "acme.com/lifespan-remaining"=4:NoSchedule
+	@echo "\n🎨 Tainting Kubernetes node..."
+	$(KUBECTL) taint nodes $(CLUSTER_NAME)-control-plane "acme.com/lifespan-remaining"=4:NoSchedule --overwrite
 
 .PHONY: logs
 logs:
 	@echo "\n🔍 Streaming simple-kubernetes-webhook logs..."
-	kubectl logs -l app=simple-kubernetes-webhook -f
+	$(KUBECTL) -n default logs -l app=simple-kubernetes-webhook -f
 
 .PHONY: delete-all
-delete-all: delete delete-config delete-pod delete-bad-pod
+delete-all:
+	$(MAKE) delete-pod delete-bad-pod
+	$(MAKE) delete
+	$(MAKE) delete-config
