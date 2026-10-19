@@ -26,7 +26,16 @@ ok  	github.com/slackhq/simple-kubernetes-webhook/pkg/validation	0.413s
 ```
 
 ### TLS certificate
-Kubernetes only allows admission webhooks running with `https`. To generate a TLS secret, run [`./dev/gen-certs.sh`](/dev/gen-certs.sh). The base64 caBundle needs to be manually copied and pasted in the `MutatingWebhookConfiguration` and `ValidattingWebhookConfiguration` at [`./dev/manifests/cluster-config/`](./dev/manifests/cluster-config/)
+Kubernetes requires HTTPS for admission webhooks. `make deploy` generates a fresh
+CA and serving certificate, deploys the TLS secret, waits for readiness, then
+registers both webhooks with the matching CA bundle.
+
+Run `make certs` or `./dev/gen-certs.sh` to generate the files separately. The
+script works from any directory and requires Bash and OpenSSL; `yq` is not needed.
+Generated manifests and the public CA certificate live in ignored
+`dev/generated/`. The CA signing key is deleted after generation. Redeploy with
+`make deploy` to rotate certificates; generating files alone does not update the
+running webhook.
 
 ### Logs
 The logs level defaults to `debug` and can be set with the env var:

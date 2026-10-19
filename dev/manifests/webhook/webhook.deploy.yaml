@@ -23,6 +23,12 @@ spec:
         - image: simple-kubernetes-webhook:latest
           imagePullPolicy: Never
           name: simple-kubernetes-webhook
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 443
+              scheme: HTTPS
+            periodSeconds: 1
           env:
             - name: TLS
               value: "true"

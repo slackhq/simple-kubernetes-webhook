@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -95,4 +96,28 @@ func TestPatchReviewResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.Equal(t, want, got)
+}
+
+func TestPodReviewsRejectUnsupportedObjects(t *testing.T) {
+	a := Admitter{
+		Logger: logrus.NewEntry(logrus.New()),
+		Request: &admissionv1.AdmissionRequest{
+			UID:  types.UID("unsupported-object"),
+			Kind: metav1.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+		},
+	}
+	for name, review := range map[string]func() (*admissionv1.AdmissionReview, error){
+		"validate": a.ValidatePodReview,
+		"mutate":   a.MutatePodReview,
+	} {
+		t.Run(name, func(t *testing.T) {
+			got, err := review()
+			if assert.Error(t, err) && assert.NotNil(t, got) &&
+				assert.NotNil(t, got.Response) && assert.NotNil(t, got.Response.Result) {
+				assert.Equal(t, a.Request.UID, got.Response.UID)
+				assert.False(t, got.Response.Allowed)
+				assert.Equal(t, int32(http.StatusBadRequest), got.Response.Result.Code)
+			}
+		})
+	}
 }
