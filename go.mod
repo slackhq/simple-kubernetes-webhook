@@ -2,7 +2,7 @@ module github.com/slackhq/simple-kubernetes-webhook
 
 go 1.26.9
 
-toolchain go1.27.2
+toolchain go1.27.3
 
 require (
 	github.com/sirupsen/logrus v1.10.2
